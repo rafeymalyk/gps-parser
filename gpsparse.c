@@ -11,35 +11,38 @@
 int parse_gps_data(const char* packet, GPSData* data) {
     // Check packet integrity using checksum
     char* checksumPos = strchr(packet, '*');
-    if (checksumPos == 0)
-        return PACKET_ERROR;
+    if (checksumPos == 0) {
+        return PACKET_ERROR; // Return error code if checksum character is not found
+    }
 
     unsigned int checksum = 0;
     for (const char* p = packet + 1; p < checksumPos; ++p) {
-        checksum ^= (unsigned int)*p;
+        checksum ^= (unsigned int)*p; // Calculate checksum by XORing each character
     }
 
     unsigned int receivedChecksum;
-    if (sscanf(checksumPos + 1, "%x", &receivedChecksum) != 1)
-        return PACKET_ERROR;
+    if (sscanf(checksumPos + 1, "%x", &receivedChecksum) != 1) {
+        return PACKET_ERROR; // Return error code if checksum parsing fails
+    }
 
-    if (checksum != receivedChecksum)
-        return PACKET_ERROR;
+    if (checksum != receivedChecksum) {
+        return PACKET_ERROR; // Return error code if checksum does not match
+    }
 
     // Extract individual parameters
     char* token;
-    char* copy = strdup(packet);  // Make a copy of the packet to avoid modifying the original string
+    char* copy = strdup(packet); // Make a copy of the packet to avoid modifying the original string
 
     token = strtok(copy, ",");
     if (token == 0 || strcmp(token, "$GPGGA") != 0) {
         free(copy);
-        return PACKET_ERROR;  // Invalid packet format or not a GGA packet
+        return PACKET_ERROR; // Return error code if packet is not in GGA format
     }
 
     token = strtok(0, ",");
     if (token == 0 || strlen(token) != 9) {
         free(copy);
-        return TIME_ERROR;  // Invalid time format
+        return TIME_ERROR; // Return error code if time format is invalid
     }
     strncpy(data->time, token, sizeof(data->time) - 1);
     data->time[sizeof(data->time) - 1] = '\0';
@@ -47,7 +50,7 @@ int parse_gps_data(const char* packet, GPSData* data) {
     token = strtok(0, ",");
     if (token == 0 || strlen(token) < 4) {
         free(copy);
-        return LATITUDE_ERROR;  // Invalid latitude format
+        return LATITUDE_ERROR; // Return error code if latitude format is invalid
     }
     char lat[12];
     strncpy(lat, token, sizeof(lat) - 1);
@@ -59,7 +62,7 @@ int parse_gps_data(const char* packet, GPSData* data) {
     token = strtok(0, ",");
     if (token == 0 || strlen(token) < 5) {
         free(copy);
-        return LONGITUDE_ERROR;  // Invalid longitude format
+        return LONGITUDE_ERROR; // Return error code if longitude format is invalid
     }
     char lon[13];
     strncpy(lon, token, sizeof(lon) - 1);
@@ -71,5 +74,5 @@ int parse_gps_data(const char* packet, GPSData* data) {
     // Parse other parameters as required
 
     free(copy);
-    return 0;  // Parsing successful
+    return 0; // Parsing successful, return success code
 }

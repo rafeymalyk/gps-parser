@@ -27,6 +27,10 @@ git clone https://github.com/your-username/gps-parser-library.git
 
 Include the library in your project by adding gpsparse.h and gpsparse.c to your source files.
 
+Main file to open is gpsparser.c
+===================================
+
+
 Usage
 =====
 Include the library header in your code:

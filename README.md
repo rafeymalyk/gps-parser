@@ -10,8 +10,12 @@ Unless required by applicable law or agreed to in writing, this
 software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
 CONDITIONS OF ANY KIND, either express or implied.*
 
+If you want to open the whole project in ESP-IDF download the Zip file uploaded seperately in the files section
+====================
+
 GPS Parser Library
 ====================
+
 The GPS Parser library is a C library for parsing GPS data packets and extracting individual parameters such as time, latitude, and longitude. This library provides a simple and efficient way to process GPS data in your embedded systems or IoT projects.
 
 Features

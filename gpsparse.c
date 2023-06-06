@@ -10,10 +10,19 @@
 
 int parse_gps_data(const char* packet, GPSData* data) {
     // Check packet integrity using checksum
-    char* checksumPos = strchr(packet, '*');  //In packet it will locate the checksum charachter"*" in the input packet string
-    if (checksumPos == 0) {                   //checks if its still zero means charachteer is not found in packet string
-        return PACKET_ERROR; // Return error code if checksum character is not found
-    }
+const	char* checksumPos = NULL;  // Initialize a pointer to store the position of the checksum character
+	for (int i = 0; packet[i] != '\0'; i++) {  // Iterate over each character in the packet string
+	    if (packet[i] == '*') {  // Check if the current character is the checksum character '*'
+	        checksumPos = &packet[i];  // Assign the address of the checksum character to the checksumPos pointer
+	        break;  // Exit the loop since the checksum character is found
+	    }
+	}
+
+	if (checksumPos == NULL) {
+	    return PACKET_ERROR;  // Return the PACKET_ERROR error code if the checksum character is not found
+	}
+
+
 
     unsigned int checksum = 0;
     for (const char* p = packet + 1; p < checksumPos; ++p) {    //for loop iterates through each charachter after $ upto the checksum charachter 1 by 1.
@@ -30,49 +39,104 @@ int parse_gps_data(const char* packet, GPSData* data) {
     }
 
     // Extract individual parameters
-    char* token;
-    char* copy = strdup(packet); // Make a copy of the packet to avoid modifying the original string
+    char* token = NULL;
+    char* copy = (char*)malloc(strlen(packet) + 1);  // Allocate memory for the copy of the packet string
+    strcpy(copy, packet);  // Copy the contents of the packet string to the newly allocated memory
 
-    token = strtok(copy, ","); // extracting packet header $GPGGA after "," charachter
-    if (token == 0 || strcmp(token, "$GPGGA") != 0) { // validating it with already known header
-        free(copy);                                  // free the allocated space if not true
-        return PACKET_ERROR; // Return error code if packet is not in GGA format
+
+                   // Initialize token pointer
+    int tokenLength = 0;              // Initialize token length variable
+    int packetLength = strlen(copy);  // Determine the length of the packet
+    int headerLength = strlen("$GPGGA");  // Determine the length of the known header "$GPGGA"
+
+    // Find the position of the delimiter ","
+    for (int i = 0; i < packetLength; i++) {
+        if (copy[i] == ',') {
+            tokenLength = i;  // Store the position of the delimiter as token length
+            break;
+        }
     }
 
-    token = strtok(0, ","); // starts from where it left last time in the last copy and extracts next token
-    if (token == 0 || strlen(token) != 9) { // checking if the format is hhmmss.ss
+    if (tokenLength == 0) {
+        free(copy);
+        return PACKET_ERROR;  // Return error code if delimiter is not found
+    }
+
+    // Allocate memory for the token
+    token = (char*)malloc(tokenLength + 1);
+
+    // Copy the characters from the start to the delimiter position
+    for (int i = 0; i < tokenLength; i++) {
+        token[i] = copy[i];
+    }
+
+    token[tokenLength] = '\0';  // Add a null terminator to the token string
+
+    // Check if the extracted token matches the known header "$GPGGA"
+    if (strncmp(token, "$GPGGA", headerLength) != 0) {
+        // Compare the first 'headerLength' characters of 'token' with the expected header "$GPGGA"
+        // If the strings do not match, execute the following block of code
+
+        free(token);
+        // Free the memory allocated for 'token' since it does not match the expected header
+        free(copy);
+        // Free the memory allocated for 'copy' to release the copied packet
+        return PACKET_ERROR;
+        // Return the error code 'PACKET_ERROR' to indicate that the packet header is invalid
+    }
+
+
+    token = strchr(token + 1, ',');
+    // Find the position of the next delimiter "," in the token string, starting from the next character
+    // This allows the code to continue parsing from where it left the last time
+    if (token == NULL || strlen(token) != 9) {
         free(copy);
         return TIME_ERROR; // Return error code if time format is invalid
     }
-    strncpy(data->time, token, sizeof(data->time) - 1); // Copy the extracted string to the destinated buffer to store extracted time
-    data->time[sizeof(data->time) - 1] = '\0';// adds null charachter at the end ensuring its null terminated
+    strncpy(data->time, token + 1, sizeof(data->time) - 1);
+    // Copy the extracted string (excluding the delimiter) to the destination buffer for time
+    data->time[sizeof(data->time) - 1] = '\0';
+    // Add a null terminator at the end to ensure the string is properly terminated
 
-    token = strtok(0, ","); // gets next token where it last ends
-    if (token == 0 || strlen(token) < 4) { // check latitude format
+    token = strchr(token + 1, ',');
+    // Find the position of the next delimiter "," in the token string, starting from the next character
+    if (token == NULL || strlen(token) < 8) {
         free(copy);
         return LATITUDE_ERROR; // Return error code if latitude format is invalid
     }
-    char lat[12]; // array declared to store latitude string extracted
-    strncpy(lat, token, sizeof(lat) - 1); //copy token from string that fits with lat array
+    char lat[12];
+    strncpy(lat, token + 1, sizeof(lat) - 1);
+    // Copy the latitude string (excluding the delimiter) to the temporary buffer
     lat[sizeof(lat) - 1] = '\0';
-    double latDegrees = strtod(lat, 0); // converts to double precision floating point value because latitude coordinates have decimal values, these values are basically minutes and seconds
-    double latMinutes = strtod(lat + 2, 0);//starts from third charachter
-    data->latitude = latDegrees + (latMinutes / 60.0); // minutes are converted back to degrees and added to latitudedegrees and final value assigned to latitude
+    // Add a null terminator at the end to ensure the string is properly terminated
+    double latDegrees = atof(lat);
+    // Convert the latitude string to a double precision floating-point value using atof
+    double latMinutes = atof(lat + 2);
+    // Convert the minutes part of the latitude string (starting from the third character) to a double
+    data->latitude = latDegrees + (latMinutes / 60.0);
+    // Calculate the latitude value by adding the degrees and the minutes converted to degrees
 
-    token = strtok(0, ",");
-    if (token == 0 || strlen(token) < 5) { // checks longitude format
+    token = strchr(token + 1, ',');
+    // Find the position of the next delimiter "," in the token string, starting from the next character
+    if (token == NULL || strlen(token) < 5) {
         free(copy);
         return LONGITUDE_ERROR; // Return error code if longitude format is invalid
     }
     char lon[13];
-    strncpy(lon, token, sizeof(lon) - 1);
+    strncpy(lon, token + 1, sizeof(lon) - 1);
+    // Copy the longitude string (excluding the delimiter) to the temporary buffer
     lon[sizeof(lon) - 1] = '\0';
-    double lonDegrees = strtod(lon, 0);
-    double lonMinutes = strtod(lon + 3, 0);
-    data->longitude = lonDegrees + (lonMinutes / 60.0); // minutes are converted to degress and added and assigned
+    // Add a null terminator at the end to ensure the string is properly terminated
+    double lonDegrees = atof(lon);
+    // Convert the longitude string to a double precision floating-point value using atof
+    double lonMinutes = atof(lon + 3);
+    // Convert the minutes part of the longitude string (starting from the fourth character) to a double
+    data->longitude = lonDegrees + (lonMinutes / 60.0);
+    // Calculate the longitude value by adding the degrees and the minutes converted to degrees
 
     // Parse other parameters as required
 
     free(copy);
     return 0; // Parsing successful, return success code
+
 }
